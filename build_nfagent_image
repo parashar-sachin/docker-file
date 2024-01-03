@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CMON_BIN=$(ls cmon_nfagent.*.gz 2>/dev/null)
+RE='cmon_nfagent.(.*?)\.(.*?).tar.gz'
+REMOTE_DOCKER_USER='cavissonsystem'
+IMAGE_PREFIX='cmon_nfagent'
+REMOTE_DOCKER_PASSWORD='Cav@55!@#'
+
+if [[ $CMON_BIN =~ $RE ]]; then
+    release=${BASH_REMATCH[1]}
+    version=${BASH_REMATCH[2]}
+else
+    release=$(cut -d '.' -f2,3,4 <<< $CMON_BIN)
+    version=$(cut -d '.' -f5 <<< $CMON_BIN)
+fi
+
+if [[ -z $release ||  -z $version ]]; then
+    echo "Error getting release and version information"
+    exit 1
+fi
+
+echo $REMOTE_DOCKER_PASSWORD | docker login \
+    --username $REMOTE_DOCKER_USER \
+    --password-stdin
+
+docker build -t cmon:$release.$version . --build-arg CMON_BIN=$CMON_BIN
+docker tag cmon:$release.$version $REMOTE_DOCKER_USER/$IMAGE_PREFIX:$release.$version
+#docker push $REMOTE_DOCKER_USER/$IMAGE_PREFIX:$release.$version
