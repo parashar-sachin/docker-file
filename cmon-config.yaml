@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: cmon-config
+    namespace: default
+data:
+      CONTROLLER: 65.19.151.248:7892
+      TIER: KubeCluster
+      NDC_COMM_PROTOCOL: TCP
+      CAV_CLUSTER_NAME: KubeCluster
