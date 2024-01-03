@@ -24,6 +24,6 @@ echo $REMOTE_DOCKER_PASSWORD | docker login \
     --username $REMOTE_DOCKER_USER \
     --password-stdin
 
-docker build -t cmon:$release.$version . --build-arg CMON_BIN=$CMON_BIN
+docker build --network=host -t cmon:$release.$version . --build-arg CMON_BIN=$CMON_BIN
 docker tag cmon:$release.$version $REMOTE_DOCKER_USER/$IMAGE_PREFIX:$release.$version
 #docker push $REMOTE_DOCKER_USER/$IMAGE_PREFIX:$release.$version
