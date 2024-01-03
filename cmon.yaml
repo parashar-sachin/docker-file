@@ -1,0 +1,231 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: cmon-config
+    namespace: default
+data:
+      CONTROLLER: 65.19.151.248:7892
+      TIER: KubeCluster
+      NDC_COMM_PROTOCOL: TCP
+      CAV_CLUSTER_NAME: KubeCluster
+cavisson@kubernetes-master:~/cmon$ cat cmon.yaml 
+#Service Account
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: cmon-service-account
+  namespace: default
+---
+#Cmon Role
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cmon-role
+rules:
+- apiGroups:
+    - apps
+  resources:
+    - pods
+    - nodes
+    - deployments
+    - persistentvolumeclaims
+    - replicasets
+    - replicationcontrollers
+    - daemonsets
+    - limitranges
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
+    - metrics.k8s.io
+  resources:
+    - pods
+    - nodes
+    - deployments
+    - persistentvolumeclaims
+    - replicasets
+    - replicationcontrollers
+    - daemonsets
+    - limitranges
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  - events
+  - endpoints
+  - pods
+  - nodes
+  - deployments
+  - persistentvolumeclaims
+  - replicasets
+  - replicationcontrollers
+  - daemonsets
+  - limitranges
+  - nodes/proxy
+  - nodes/metrics
+  - nodes/spec
+  - nodes/stats
+  - componentstatuses
+  - resourcequotas
+  - count/persistentvolumeclaims
+  - count/services
+  - count/secrets
+  - count/configmaps
+  - count/replicationcontrollers
+  - count/deployments.apps
+  - count/replicasets.apps
+  - count/statefulsets.apps
+  - count/jobs.batch
+  - count/cronjobs.batch
+  - count/deployments.extensions
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+  - delete
+  - deletecollection
+  - patch
+  - update
+- apiGroups:
+  - "autoscaling"
+  resources:
+  - horizontalpodautoscalers
+  verbs:
+  - list
+  - watch
+- apiGroups:  # To create the leader election token
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - get
+  - update
+- nonResourceURLs:
+  - "/version"
+  - "/healthz"
+  - "/metrics"
+  verbs:
+  - get
+---
+#ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cmon-clusterrolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cmon-role
+subjects:
+- kind: ServiceAccount
+  name: cmon-service-account
+  namespace: default
+---
+#DaemonSet
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cmon
+  namespace: default
+  labels:
+    name: cmon
+    app: cmon
+spec:
+  selector:
+    matchLabels:
+      name: cmon
+  template:
+    metadata:
+      labels:
+        name: cmon
+        app: cmon
+    spec:
+      serviceAccountName: cmon-service-account
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        effect: NoSchedule
+      containers:
+        - name: cmon
+          image: cavissonsystem/cmon:117
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: CONTROLLER
+              valueFrom:
+                configMapKeyRef:
+                  name: cmon-config
+                  key: CONTROLLER
+            - name: NDC_COMM_PROTOCOL
+              valueFrom:
+                configMapKeyRef:
+                  name: cmon-config
+                  key: NDC_COMM_PROTOCOL
+            - name: TIER
+              valueFrom:
+                configMapKeyRef:
+                  name: cmon-config
+                  key: TIER
+            - name: CAV_CLUSTER_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cmon-config
+                  key: CAV_CLUSTER_NAME  
+          ports:
+          - containerPort: 7891
+            hostPort: 7891
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "1000Mi"
+            requests:
+              cpu: "500m"
+              memory: "1000Mi"
+          volumeMounts:
+          - name: varlogs
+            mountPath: /var/log
+          - name: varlibdockercontainers
+            mountPath: /var/lib/docker/containers
+            readOnly: true
+          - name: hostsys
+            mountPath: /host/sys
+          - name: hostproc
+            mountPath: /host/proc
+          - name: varrun
+            mountPath: /var/run
+          - name: cmon-volume
+            mountPath: /home/cavisson/monitors/sys/cmon.env
+            subPath: cmon.env
+      volumes:
+      - name: varlogs
+        hostPath:
+          path: /var/log
+      - name: varlibdockercontainers
+        hostPath:
+          path: /var/lib/docker/containers
+      - name: hostsys
+        hostPath:
+          path: /sys
+      - name: hostproc
+        hostPath:
+          path: /proc
+      - name: varrun
+        hostPath:
+          path: /var/run
+      - name: cmon-volume
+        configMap:
+          name: cmon-config
+          defaultMode: 440
