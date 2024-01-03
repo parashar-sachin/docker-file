@@ -36,15 +36,15 @@ RUN apt-get update && \
 WORKDIR /home/cavisson/monitors/
 
 COPY --from=java-builder /usr/lib/jvm/java-1.8.0-amazon-corretto /usr/lib/jvm/java-1.8.0-amazon-corretto
-#ARG CMON_BIN
-COPY cmon..121.tar.gz .
+ARG CMON_BIN
+COPY $CMON_BIN .
 
 #RUN tar -xzf cmon_nfagent.4.13.0.84.tar.gz && \
  #   rm cmon_nfagent.4.13.0.84.tar.gz && \
   #  chown -R $UNAME:$UNAME /home/cavisson/monitors/
 
-RUN tar -xzf cmon..121.tar.gz && \
-    rm cmon..121.tar.gz 
+RUN tar -xzf $CMON_BIN && \
+    rm $CMON_BIN 
 
 
 EXPOSE 7891
